@@ -74,3 +74,9 @@ GEMINI_API_KEY=your_api_key_here
 
 `src/llm/gemini_explainer.py` automatically loads this variable to initialize the Gemini client.
 
+## Research Poster
+
+A research poster summarizing the architecture and results of this project is available in:
+
+```docs/xai_poster.pdf```
+
