@@ -53,24 +53,16 @@ PROMPT_MAESTRO = """
     Evitar descripciones visuales obvias.
     Dar recomendaciones prácticas si corresponde 
     (ej.: “para reducir la bioacumulación, la tendencia sería…”).
-
-    La lista de los descriptores químicos usados es:
-    - nHM: número de átomos de hidrógeno
-    - piPC09: índice de polaridad
-    - PCD: complejidad del compuesto
-    - X2Av: conectividad del átomo 2 promedio
-    - MLOGP: logaritmo del coeficiente de partición octanol/agua
-    - ON1V: volumen polarizable
-    - N-072: número de átomos de nitrógeno
-    - B02[C-N]: conteo de pares de átomos C-N a distancia 2
-    - F04[C-O]: conteo de pares de átomos C-O a distancia 4
 """
 
 load_dotenv()
 def _get_client() -> genai.Client:
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        raise RuntimeError("GEMINI_API_KEY no está configurada en el entorno.")
+        raise RuntimeError(
+            "GEMINI_API_KEY no está configurada. Creá un archivo .env en la raíz del proyecto "
+            "(podés usar .env.example) y definí GEMINI_API_KEY=tu_clave."
+        )
     client = genai.Client(api_key=api_key)
     return client
 
@@ -82,18 +74,40 @@ def explicar_con_gemini(
     task_type: str,
     model_name: str = "gemini-2.5-flash",
     expertise_level: str = "beginner",
-    domain: str = "química",
+    domain: str = "IA",
+    descriptor_names: list[str] | None = None,
 ) -> str:
     """
-    Versión modular de tu función explicar_con_gemini del notebook BCF.
-    En lugar de hacer print streaming + input interactivo, devolvemos el texto.
-    Podés adaptar a tus necesidades.
+    
+    Args:
+        descriptor_names: Lista de nombres de descriptores usados en el modelo.
+                          Si se proporciona, actualiza el prompt maestro dinámicamente.
+                          Por defecto tiene los de BCF, pero podría ser útil para otros modelos con diferentes descriptores.
     """
     client = _get_client()
     chat = client.chats.create(model=model_name)
 
+    # Construir el prompt maestro actualizado si se proporcionan descriptores
+    prompt_maestro = PROMPT_MAESTRO
+    
+    # por defecto asumimos BCF
+    descriptor_list = ["nHM: número de átomos de hidrógeno", "piPC09: índice de polaridad", "PCD: complejidad del compuesto", "X2Av: conectividad del átomo 2 promedio", "MLOGP: logaritmo del coeficiente de partición octanol/agua", "ON1V: volumen polarizable", "N-072: número de átomos de nitrógeno", "B02[C-N]: conteo de pares de átomos C-N a distancia 2", "F04[C-O]: conteo de pares de átomos C-O a distancia 4"]
+    current_dataset = "BCF"
+    
+    # en caso de que se esté haciendo una explicación a tiresia
+    if descriptor_names is not None and len(descriptor_names) > 0:
+        # Crear descripción dinámica de descriptores
+        descriptor_list = "\n    ".join([f"- {d}" for d in descriptor_names])
+        current_dataset = "Tiresia"
+    
+    # especificamos con qué dataset estamos trabajando
+    prompt_maestro += f"\nActualmente estás explicando el dataset de {current_dataset}."
+    
+    # agregamos los descriptores correspondientes al prompt maestro
+    prompt_maestro += f"\n\nLos descriptores usados en este modelo son:\n    {descriptor_list}\n"
+
     prompt = f"""
-    {PROMPT_MAESTRO}
+    {prompt_maestro}
 
     Ahora te paso los valores de esta predicción:
 
